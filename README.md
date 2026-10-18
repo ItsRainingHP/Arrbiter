@@ -1,0 +1,37 @@
+# Arrbiter
+
+Arrbiter is a single-container Sonarr and Radarr companion for audio-language checks, stalled download removal, disposable download-folder cleanup, and live operational logs. Automatic actions are disabled until an administrator enables them.
+
+## Start
+
+1. Review `compose.yaml`. It creates a persistent `/config` volume. Mount **only a dedicated disposable download folder** beneath `/cleanup`; never mount a library, seeding folder, or directory containing unmanaged downloads there.
+2. Run `docker compose up --build -d` and open `http://localhost:8787`.
+3. Sign in with `admin` / `arrbiter` on a new installation. A banner stays at the top until you set your own credentials in Settings. The new password must contain at least 12 characters. Blank `ARRBITER_DEFAULT_USERNAME` and `ARRBITER_DEFAULT_PASSWORD` values in `compose.yaml` use these built-in credentials; nonempty values override them only when a fresh `/config` volume first creates the account. Existing accounts are preserved.
+4. Add a Sonarr or Radarr connection in Settings. Use its base URL and API key. The callback URL must be an Arrbiter address that **that instance** can reach. For an instance on another machine, use `http://<this-PC-LAN-IP>:8788`; if all services share a Docker network, use `http://arrbiter:8787`. `localhost` on a remote instance points back to that instance. The form suggests the callback used by an active connection. **Test connection** checks the Sonarr/Radarr API and catches obvious callback mistakes; Sonarr/Radarr tests actual webhook delivery when you save an active connection. A failed webhook setup leaves a new connection unsaved and preserves an existing connection's settings.
+5. Choose an allowlist or blocklist and languages, then explicitly enable import checks, scheduled scans, stalled download handling, and/or cleanup as desired. New connections are inactive by default.
+
+Docker Desktop binds the login interface on port 8787 to this computer only. Port 8788 accepts only token-authenticated Sonarr/Radarr webhooks and is reachable on the LAN; allow it through the host firewall only for your Arr instances. The callback URL uses port 8788 when an instance runs on another machine. If you replace the named `/config` volume with a bind mount, its directory must be writable by container user ID 1000. The mounted cleanup directory must also be writable by that user. Keep `/config/master.key` with its database backup: losing the key makes stored API keys unreadable. Serve Arrbiter over HTTPS outside a trusted local network; set `ARRBITER_COOKIE_SECURE=true` when using HTTPS. Only one Arrbiter container should use a given `/config` database.
+
+## Behavior
+
+- Audio-language decisions use the actual file `mediaInfo.audioLanguages` supplied by Sonarr/Radarr. An allowlist passes when any known audio track is selected. A blocklist fails when any selected track occurs. Missing or unrecognized audio data goes to Activity for review.
+- Webhooks check new imports and upgrades. History reconciliation looks for missed imports; it only acts when a file can be matched to an exact grabbed release. If only one new-media toggle is enabled and history cannot identify whether an event was an upgrade, it sends that event to review. Scheduled scans cover existing files every 6, 12, or 24 hours, or weekly. Library has a manual preview and apply flow, including for saved connections whose automatic features are disabled. At least one language must be selected. Apply keeps the preview visible and reports each file's progress and result; a fresh preview is required before another apply. Failed files are rechecked, their grabbed release is blocklisted, only that file is deleted through Sonarr/Radarr, and a targeted search is requested. Uncertain provenance or ambiguous audio codes such as `mul` stay in review.
+- Stalled-download handling is separate and initially off. It polls every two minutes. Torrent and Usenet limits are independent, defaulting to 24 and 6 hours, and each accepts 30 minutes through 7 days. Only a continuously active download with unchanged remaining bytes for the full limit qualifies. A progress change, state change, outage, or restart resets observation. Missing byte data requires review. A shared download is held. The queue removal asks Sonarr/Radarr to remove from the client, blocklist, skip its own retry, and then Arrbiter requests one targeted search.
+- Each cleanup target has its own schedule and a manual preview. The worker requires every enabled connection to show an empty queue and no pending import commands for 30 uninterrupted minutes. It snapshots contents and rechecks activity and file identity before deletion. New or changed entries remain; the target folder stays in place. Cleanup will not follow symlinks or cross nested mounts.
+- Jobs run through one worker. Activity shows decisions and partial failures, with links to associated logs. Logs are authenticated, stream live, support filters, and export as text or JSONL. Log records and exports redact recognized secret fields and are retained for 30 days.
+
+## Local development
+
+Use Node 24 or newer. Run `npm ci`, then `npm run dev` for the API and Vite UI. The API listens on port 8787 and Vite on 5173. Set `ARRBITER_WEBHOOK_PORT=8788` to start the separate webhook listener. Set `ARRBITER_CONFIG_DIR` and `ARRBITER_CLEANUP_ROOT` to writable local directories; the default paths are `/config` and `/cleanup`. Run `npm test`, `npm run test:integration`, and `npm run build` for checks. The integration test uses disposable Sonarr and Radarr API fixtures and does not modify a real library. The UI uses React and Once UI.
+
+## GitHub checks and Docker Hub releases
+
+Pull requests and non-main branch pushes run unit tests, the disposable Sonarr/Radarr integration test, a production build, and a Docker build. Pushes to `main` and tags beginning with `v` run the tests before publishing to [Docker Hub](https://hub.docker.com/r/itsraininghp/arrbiter). A successful `main` push publishes `itsraininghp/arrbiter:latest` and a `sha-...` tag. A `v1.2.3` tag publishes `itsraininghp/arrbiter:v1.2.3` and a `sha-...` tag. Dependabot checks npm, the Dockerfile, and GitHub Actions weekly.
+
+Before the first publishing push, add GitHub Actions repository secrets `DOCKER_USERNAME` (the Docker Hub account name) and `DOCKER_PASSWORD` (a Docker Hub access token with permission to push to `itsraininghp/arrbiter`). Keep the token out of this repository. To use the published image in Compose, replace `build: .` in `compose.yaml` with `image: itsraininghp/arrbiter:latest`; keep the same ports, environment, and volumes. Use a version tag for deployments that should not change when `latest` is updated.
+
+## Safety boundaries
+
+The download cleanup folder must be dedicated and disposable; Arrbiter cannot identify unmanaged or seeding files inside it. Do not point it at a download client’s general data folder. Sonarr/Radarr must retain access to their own library and download paths. Arrbiter accesses library files only through their APIs and does not need the library mounted. If a webhook cannot be registered, a connection stays disabled. Review Activity for API failures or source ambiguity before retrying.
+
+Before enabling automatic actions on real media, verify the connection, webhook delivery, queue state, and one replacement flow against disposable Sonarr/Radarr instances and test downloads. This repository's automated fixtures do not validate a specific installed version or download client.

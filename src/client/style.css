@@ -1,0 +1,29 @@
+:root { --font-body: Inter, ui-sans-serif, system-ui, sans-serif; --font-heading: Inter, ui-sans-serif, system-ui, sans-serif; --font-label: Inter, ui-sans-serif, system-ui, sans-serif; --font-code: ui-monospace, SFMono-Regular, Consolas, monospace; }
+html, body, #root { margin: 0; min-height: 100%; }
+body { background: var(--page-background); font-family: var(--font-body); }
+* { box-sizing: border-box; }
+.app-shell { height: 100dvh; overflow: hidden; }
+.auth-shell { min-height: 100dvh; }
+.auth-main { flex: 1; }
+.credentials-banner { flex: none; }
+.app-header { min-height: 56px; flex: none; }
+.app-pane { min-height: 0; flex: 1; }
+.sidebar { min-width: 215px; }
+.content { min-width: 0; height: 100%; }
+.table-wrap { overflow-x: auto; width: 100%; }
+.decision-filter { width: min(100%, 18rem); }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; width: 100%; }
+.log-window { font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; background: #101722; color: #d7e4f4; border-radius: 10px; padding: 16px; height: min(58dvh, 620px); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.log-line { border-bottom: 1px solid #223042; padding: 3px 0; }
+.log-line.warn { color: #ffdb8b; }
+.log-line.error { color: #ffaaa8; }
+.apply-result-message { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.nav-mobile { display: none; }
+.nav-mobile { scrollbar-width: none; }
+.nav-mobile::-webkit-scrollbar { display: none; }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; width: 100%; }
+.datetime-field { display: flex; flex-direction: column; gap: 6px; color: var(--neutral-on-background-weak); font-size: 12px; }
+.datetime-field input { width: 100%; min-height: 48px; padding: 12px 14px; border: 1px solid var(--neutral-border-medium); border-radius: 12px; background: var(--neutral-background-medium); color: var(--neutral-on-background-strong); font: 14px var(--font-body); color-scheme: dark; }
+[data-theme="light"] .datetime-field input { color-scheme: light; }
+.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+@media (max-width: 768px) { .sidebar { display: none !important; } .nav-mobile { display: flex; overflow-x: auto; width: 100%; } .app-header { flex-wrap: wrap; } .content { padding: 16px !important; } }
